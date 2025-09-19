@@ -248,6 +248,30 @@ export const supabaseApi = {
     return data
   },
 
+  async getFolderParents(folderId: string): Promise<string[]> {
+    const parents: string[] = [];
+    let currentId = folderId;
+
+    while (currentId) {
+      const { data: folder, error } = await supabase
+        .from('fm_folders')
+        .select('parent_id')
+        .eq('id', currentId)
+        .single();
+
+      if (error || !folder) break;
+
+      if (folder.parent_id) {
+        parents.unshift(folder.parent_id); // Add to beginning to get correct order
+        currentId = folder.parent_id;
+      } else {
+        break;
+      }
+    }
+
+    return parents;
+  },
+
   async getFolderBreadcrumbs(folderId: string): Promise<{ id: string; name: string; path: string }[]> {
     const { data: folder, error } = await supabase
       .from('fm_folders')

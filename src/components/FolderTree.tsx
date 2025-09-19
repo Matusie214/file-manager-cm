@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { supabaseApi, type Folder } from '@/lib/supabase-api';
@@ -20,6 +20,31 @@ export function FolderTree({ currentFolderId, onFolderSelect }: FolderTreeProps)
     queryKey: ['folders', null],
     queryFn: () => supabaseApi.getFolders(),
   });
+
+  // Get parent folders for current folder to auto-expand path
+  const { data: parentIds = [] } = useQuery({
+    queryKey: ['folderParents', currentFolderId],
+    queryFn: () => currentFolderId ? supabaseApi.getFolderParents(currentFolderId) : [],
+    enabled: !!currentFolderId,
+  });
+
+  // Auto-expand folders in the path to current folder
+  useEffect(() => {
+    if (currentFolderId && parentIds.length > 0) {
+      const newExpanded = new Set(expandedFolders);
+      
+      // Add all parent folders to expanded set
+      parentIds.forEach(parentId => {
+        newExpanded.add(parentId);
+      });
+      
+      setExpandedFolders(newExpanded);
+    } else if (currentFolderId === null) {
+      // When going back to dashboard, optionally collapse all folders
+      // Comment out the line below if you want to keep folders expanded
+      // setExpandedFolders(new Set());
+    }
+  }, [currentFolderId, parentIds]);
 
   // Debug: Log folder data
   console.log('FolderTree rootFolders:', rootFolders);

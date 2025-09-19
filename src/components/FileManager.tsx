@@ -43,6 +43,12 @@ export function FileManager({ user, onLogout }: FileManagerProps) {
     enabled: currentFolderId !== null,
   });
 
+  // Get subfolders in current folder (including root level when currentFolderId is null)
+  const { data: subfolders = [], isLoading: subfoldersLoading } = useQuery({
+    queryKey: ['subfolders', currentFolderId],
+    queryFn: () => supabaseApi.getFolders(currentFolderId || undefined),
+  });
+
   // Get recent files for dashboard
   const { data: recentFiles = [] } = useQuery({
     queryKey: ['files', 'recent'],
@@ -61,6 +67,7 @@ export function FileManager({ user, onLogout }: FileManagerProps) {
     mutationFn: (name: string) => supabaseApi.createFolder(name, currentFolderId || undefined),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['folders'] });
+      queryClient.invalidateQueries({ queryKey: ['subfolders'] });
       setNewFolderName('');
       setShowNewFolderDialog(false);
     },
@@ -228,16 +235,35 @@ export function FileManager({ user, onLogout }: FileManagerProps) {
 
           {/* Main Content */}
           <div className="lg:col-span-3 space-y-6">
-            {/* Dashboard - Recent Files */}
+            {/* Dashboard - Recent Files and Root Folders */}
             {currentFolderId === null && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Files</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <RecentFiles files={recentFiles as { id: string; name: string; size: number; created_at: string }[]} />
-                </CardContent>
-              </Card>
+              <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Recent Files</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <RecentFiles files={recentFiles as { id: string; name: string; size: number; created_at: string }[]} />
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Your Folders</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <FileList
+                      files={[]}
+                      folders={subfolders.map(folder => ({ ...folder, type: 'folder' as const }))}
+                      loading={subfoldersLoading}
+                      selectedFiles={[]}
+                      onSelectionChange={() => {}}
+                      onFolderClick={setCurrentFolderId}
+                      viewMode={viewMode}
+                    />
+                  </CardContent>
+                </Card>
+              </>
             )}
 
             {/* File Management */}
@@ -372,10 +398,12 @@ export function FileManager({ user, onLogout }: FileManagerProps) {
                   </CardHeader>
                   <CardContent>
                     <FileList
-                      files={files as { id: string; name: string; size: number; created_at: string; mime_type: string }[]}
-                      loading={filesLoading}
+                      files={files.map(file => ({ ...file, type: 'file' as const }))}
+                      folders={subfolders.map(folder => ({ ...folder, type: 'folder' as const }))}
+                      loading={filesLoading || subfoldersLoading}
                       selectedFiles={selectedFiles}
                       onSelectionChange={setSelectedFiles}
+                      onFolderClick={setCurrentFolderId}
                       viewMode={viewMode}
                     />
                   </CardContent>
